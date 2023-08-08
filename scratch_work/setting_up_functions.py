@@ -284,30 +284,70 @@ def wavelet_sharpness(data, level=3, threshold=35):
 
 
 
-def display_wavelet_decomposition_overlay(storage_dictionary, figure_axes, threshold = 35, image_identifier = 'DEFAULT', title = 'DEFAULT TITLE'):
+# This function takes the output of the wavelet_sharpness function and a set of axes as inputs,
+# then outputs a plot of the data in the storage dictionary with the edge patches overlaid.
+# NOTE: Threshold should match what the threshold was for wavelet_sharpness.
+# The image_identifier will be set as the y-axis label, and the title will be set as the figure
+# title.
+# Note also that the yellow border on blurred edges can be toggled with the blur_indicator boolean
+def display_wavelet_decomposition_overlay(storage_dictionary, figure_axes, blur_indicator=True, threshold = 35, image_identifier = 'DEFAULT', title = 'DEFAULT TITLE'):
+    # Retrive the decomposition level from the dictionary
     level = storage_dictionary['decomposition_level']
+
+    # Remove the axis ticks
     figure_axes.set_xticks([])
     figure_axes.set_yticks([])
+
+    # Display the sharpness and blur_extent statistics on the x-axis
     figure_axes.set_xlabel('Sharpness: {sharpness:.3f}  Blur Extent: {blur_extent:.3f}'
-                                          .format(**storage_dictionary),
-                                          fontsize=6)
-    figure_axes.set_ylabel(f'Image {image_identifier}', fontsize=6)
-    figure_axes.set_title(title, fontsize=10)
+                                          .format(**storage_dictionary),)
+
+    # Set the y-axis label to the image identifier
+    figure_axes.set_ylabel(f'Image {image_identifier}')
+
+    # Set the figure title
+    figure_axes.set_title(title)
+
+    # Plot the underlying image
     figure_axes.imshow(storage_dictionary['data'],
                                       clim=(0, 255), cmap=plt.cm.gray)
 
+    # Retrive the shape of the edge indicator maps from the dictionary.
     shape = storage_dictionary['low_grad_edges'].shape
 
     for i in range(shape[0]):
         for j in range(shape[1]):
+            # Set the starting index for the large patches. The patch size
+            # Changes based on how many total decomposition levels there
+            # are, by a power of 2 for each level.
             row_lo_index = i*2**(level + 1)
             col_lo_index = j*2**(level + 1)
-            
+
+            # Check if this is a low_grad_edge, draw the small patches
+            # if so.
             if(storage_dictionary['low_grad_edges'][i][j] > 0.5):
+                # The patch size for the broadest wavelet is 1/4 the size
+                # of the large patch (1/2 the size on each side)
                 patch_size = 2**(level)
+
+                # Now, we loop through the edge map for the broadest wavelet
+                # and draw patches corresponding to specific pixels that were
+                # bright.
                 for k in range(2):
                     for l in range(2):
+                        # Checks if the pixel is above the brightness threshold, then
+                        # constructs the patch if it is. Note that we only check a 2x2
+                        # patch of the edge map, corresponding to the current pixel of
+                        # the edge indicator
                         if(storage_dictionary['edge_maps'][0][2*i+k][2*j+l] > threshold):
+
+                            # Construct the patch. NOTE: we list the column index first, then
+                            # the row index. This is because the row index corresponds to the
+                            # y-axis, while the column index corresponds to the x-axis.
+                            #
+                            # Note also that the patch is offset by 0.5. This is because imshow
+                            # centers pixels on gridpoints, so the corner of the rectangle should
+                            # be right in the middle of 4 grid points.
                             indicator_patch = patches.Rectangle((col_lo_index + l*patch_size - .5,
                                                                  row_lo_index + k*patch_size - .5),
                                                                 2**level, 2**level, linewidth=1,
@@ -315,16 +355,23 @@ def display_wavelet_decomposition_overlay(storage_dictionary, figure_axes, thres
                                                                 alpha=.2)
                             figure_axes.add_patch(indicator_patch)
 
-                
+                # Draw the larger patch with a lower alpha so that it fades into the background
                 indicator_patch = patches.Rectangle((col_lo_index - .5, row_lo_index - .5),
                                                     2**(level+1), 2**(level+1),
                                                     linewidth=1, edgecolor='black',
                                                     facecolor='blue', alpha=.1)
                 figure_axes.add_patch(indicator_patch)
+
+            # This process is almost identical to the above process, but with larger partitions
+            # of the middle level edge map. This is because the middle level edge map is 4 times
+            # larger than the lower level edge map (1/2 on each side)
             if(storage_dictionary['mid_grad_edges'][i][j] > 0.5):
+                # The patch size for the middle wavelet is 1/16 the size
+                # of the large patch (1/4 the size on each side)
                 patch_size = 2**(level-1)
                 for k in range(4):
                     for l in range(4):
+                        # Same as above, accounting for new larger patch size
                         if(storage_dictionary['edge_maps'][1][4*i+k][4*j+l] > threshold):
                             indicator_patch = patches.Rectangle((col_lo_index + l*patch_size - .5,
                                                                  row_lo_index + k*patch_size - .5),
@@ -337,7 +384,11 @@ def display_wavelet_decomposition_overlay(storage_dictionary, figure_axes, thres
                                                     linewidth=1, edgecolor='black',
                                                     facecolor='green', alpha=.1)
                 figure_axes.add_patch(indicator_patch)
+
+            # Same as above, accounting for even larger edge map
             if(storage_dictionary['sharp_edges'][i][j] > 0.5):
+                # The patch size for the smalles wavelet is 1/64 the size
+                # of the large patch (1/8 the size on each side)
                 patch_size = 2**(level-2)
                 for k in range(8):
                     for l in range(8):
@@ -354,15 +405,19 @@ def display_wavelet_decomposition_overlay(storage_dictionary, figure_axes, thres
                                                     facecolor='red', alpha=.1)
                 figure_axes.add_patch(indicator_patch)
 
-            if(storage_dictionary['blurred_edges'][i][j] > 0.5):
-                indicator_patch = patches.Rectangle((col_lo_index-.5, row_lo_index-.5),
-                                                    2**(level+1), 2**(level+1),
-                                                    linewidth=2, edgecolor='yellow',
-                                                    facecolor=None, alpha=.1)
-                figure_axes.add_patch(indicator_patch)
+            # Loop through blurred edge indicator matrix, outline the large rectangle
+            # yellow if the edge is potentially blurred. Note that we cannot pinpoint
+            # specific edges within the large patch that might be blurred, only that
+            # the large patch potentially contains a blurred edge.
+            if(blur_indicator):
+                if(storage_dictionary['blurred_edges'][i][j] > 0.5):
+                    indicator_patch = patches.Rectangle((col_lo_index-.5, row_lo_index-.5),
+                                                        2**(level+1), 2**(level+1),
+                                                        linewidth=2, edgecolor='yellow',
+                                                        facecolor=None, alpha=.1)
+                    figure_axes.add_patch(indicator_patch)
        
 
-    
 
 
 

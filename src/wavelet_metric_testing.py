@@ -5,6 +5,7 @@ import pywt
 import numpy as np
 import numpy.linalg as la
 import netCDF4
+import time
 
 from dataloader import generate_synthetic_data, load_data, synthetic_f, sinusoidal_grating, gaussian_blob
 from transforms import apply_transform, transform_d
@@ -14,7 +15,15 @@ from wavelet_metric_and_output import wavelet_sharpness, display_wavelet_decompo
 from statistics import mode
 from wavelet_visualization_tools import *
 
-def test_sinusoidal_data():
+
+# This function creates a database of sinusoidal gratings at a range of wavelengths and rotation angles,
+# then tests the wavelet sharpness metric on each grating for decomposition level 3, 4, 5, and 6. For
+# each image, if a high sharpness is detected, the specifics of the grating, decomposition level, and
+# sharpness are outputted to the console. Once all metrics have been computed, the function calculates
+# global statistics for the dataset for each decomposition level. The function also has the option to
+# output visuals for the data. If visual_output is set to true, the function will output the 3 sharpest
+# images, the lowest non-zero sharpness image, and 3 different zero-sharpness images
+def test_sinusoidal_data(visual_output = False):
     # Create a list of angles for the sinusoidal grating. These are chosen to scan through a full rotation (since the
     # grating is symmetric, we only need to check between 0 and 180 degrees). Additionally, at certain angles we generate
     # gratings with 1 degree plus and minus, to check if minor variance results in major changes in the metric
@@ -45,6 +54,10 @@ def test_sinusoidal_data():
 
                 # Compute the sharpness metric, store the output dictionary
                 sharpness_metrics = wavelet_sharpness(data, level=level, threshold=35)
+
+                # Add the wavelength and rotation angle to the dictionary for later retrieval
+                sharpness_metrics.update({'alpha':alpha})
+                sharpness_metrics.update({'wavelength':wavelength})
 
                 # Add the dictionary to the output storage list. This makes it
                 # easier to output results at a later time if desired
@@ -104,9 +117,93 @@ def test_sinusoidal_data():
         print(f'  Zeros: \t\t{zero_count}/{length}')
         print(f'  Standard Deviation: \t{std_dev}')
 
+        # Output plots of the three sharpest images, the least non-zero sharpness image, and
+        # three different zero sharpness images.
+        if(visual_output):
+            # First we plot the 3 sharpest images
+            for i in range(3):
+                # Extract data from dictionary, ~i referencing the back of the sorted list
+                data = output_list[~i]['data']
+
+                # Extract wavelength and alpha
+                wavelength = output_list[~i]['wavelength']
+                alpha      = output_list[~i]['alpha']
+
+                # Set up figure and subfigures
+                fig = plt.figure(figsize=(2, 4))
+                subfigs = fig.subfigures(1, 2)
+
+                # Set up axes for original image plot
+                ax = subfigs[0].add_subplot(111)
+                ax.set_xticks([])
+                ax.set_yticks([])
+                ax.set_ylabel(f'Wavelength: {wavelength:.2f}  Alpha: {alpha:.2f}')
+
+                ax.imshow(data, cmap=plt.cm.gray, clim=(0, 255))
+
+                # Get axes for the second subfigure, plot the sharpness overlay on these axes
+                ax = subfigs[1].add_subplot(111)
+
+                display_wavelet_decomposition_overlay(output_list[~i], ax, blur_indicator=False,
+                                                      image_identifier = f'Wavelength: {wavelength:.2f}  Alpha: {alpha:.2f}',
+                                                      title = f'Level {decomposition_level[level_index]} Sharpness')
+
+            # Next, display the image with least non-zero sharpness
+            data = output_list[zero_count]['data']
+            alpha = output_list[zero_count]['alpha']
+            wavelength = output_list[zero_count]['wavelength']
+            
+            fig = plt.figure(figsize=(2, 4))
+            subfigs = fig.subfigures(1, 2)
+
+            ax = subfigs[0].add_subplot(111)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_ylabel(f'Wavelength: {wavelength:.2f}  Alpha: {alpha:.2f}')
+            ax.imshow(data, cmap=plt.cm.gray, clim=(0, 255))
+
+            ax = subfigs[1].add_subplot(111)
+            display_wavelet_decomposition_overlay(output_list[zero_count], ax, blur_indicator=False,
+                                                  image_identifier = f'Wavelength: {wavelength:.2f}  Alpha: {alpha:.2f}',
+                                                  title = f'Level {decomposition_level[level_index]} Sharpness')
+
+            # Finally, plot 3 images with 0 sharpness
+            for i in range(3):
+                # Create a step to go through the zero-sharpness images
+                step = zero_count//3
+
+                # Extract data from dictionary
+                data = output_list[i*step]['data']
+
+                # Extract wavelength and alpha
+                wavelength = output_list[i*step]['wavelength']
+                alpha      = output_list[i*step]['alpha']
+
+                fig = plt.figure(figsize=(2, 4))
+                subfigs = fig.subfigures(1, 2)
+
+                # Set up axes for original image plot
+                ax = subfigs[0].add_subplot(111)
+                ax.set_xticks([])
+                ax.set_yticks([])
+                ax.set_ylabel(f'Wavelength: {wavelength:.2f}  Alpha: {alpha:.2f}')
+
+                ax.imshow(data, cmap=plt.cm.gray, clim=(0, 255))
+
+                # Get axes for the second subfigure, plot the sharpness overlay on these axes
+                ax = subfigs[1].add_subplot(111)
+
+                display_wavelet_decomposition_overlay(output_list[i*step], ax, blur_indicator=False,
+                                                      image_identifier = f'Wavelength: {wavelength:.2f}  Alpha: {alpha:.2f}',
+                                                      title = f'Level {decomposition_level[level_index]} Sharpness')
+
+            plt.show()
+                
+            
+
 # Very similar to the above, only using data from the 264 cloud images provided by
 # Kyle.
-def test_cloud_data():
+def test_cloud_data(visual_output = False):
     # Same as above
     decomposition_level = [3, 4, 5, 6]
 
@@ -121,6 +218,9 @@ def test_cloud_data():
 
             # Compute the sharpness metric, store the output dictionary
             sharpness_metrics = wavelet_sharpness(data, level=level, threshold=35)
+
+            # Add the original index to the dictionary for later retrieval
+            sharpness_metrics.update({'original_index':sample})
 
             output_storage[level_index].append(sharpness_metrics)
 
@@ -187,13 +287,100 @@ def test_cloud_data():
         print(f'  Zeros: \t\t{zero_count}/{length}')
         print(f'  Standard Deviation: \t{std_dev}')
 
+        # Output plots of the three sharpest images, the least non-zero sharpness image, and
+        # three different zero sharpness images.
+        if(visual_output):
+            # First we plot the 3 sharpest images
+            for i in range(3):
+                # Extract data from dictionary, ~i referencing the back of the sorted list
+                data = output_list[~i]['data']
+
+                # Extract original index
+                original_index = output_list[~i]['original_index']
+
+                # Set up figure and subfigures
+                fig = plt.figure(figsize=(2, 4))
+                subfigs = fig.subfigures(1, 2)
+
+                # Set up axes for original image plot
+                ax = subfigs[0].add_subplot(111)
+                ax.set_xticks([])
+                ax.set_yticks([])
+                ax.set_ylabel(f'Sample {original_index:.2f}')
+
+                ax.imshow(data, cmap=plt.cm.gray, clim=(0, 255))
+
+                # Get axes for the second subfigure, plot the sharpness overlay on these axes
+                ax = subfigs[1].add_subplot(111)
+
+                display_wavelet_decomposition_overlay(output_list[~i], ax, blur_indicator=False,
+                                                      image_identifier = f'Sample {original_index:.2f}',
+                                                      title = f'Level {decomposition_level[level_index]} Sharpness')
+
+            # Next, display the image with least non-zero sharpness
+            data = output_list[zero_count]['data']
+            original_index = output_list[zero_count]['original_index']
+            
+            fig = plt.figure(figsize=(2, 4))
+            subfigs = fig.subfigures(1, 2)
+
+            ax = subfigs[0].add_subplot(111)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_ylabel(f'Sample {original_index:.2f}')
+            ax.imshow(data, cmap=plt.cm.gray, clim=(0, 255))
+
+            ax = subfigs[1].add_subplot(111)
+            display_wavelet_decomposition_overlay(output_list[zero_count], ax, blur_indicator=False,
+                                                  image_identifier = f'Sample {original_index:.2f}',
+                                                  title = f'Level {decomposition_level[level_index]} Sharpness')
+
+            # Finally, plot 3 images with 0 sharpness
+            for i in range(3):
+                # Create a step to go through the zero-sharpness images
+                step = zero_count//3
+
+                # Extract data from dictionary
+                data = output_list[i*step]['data']
+
+                # Extract original index
+                original_index = output_list[i*step]['original_index']
+
+                fig = plt.figure(figsize=(2, 4))
+                subfigs = fig.subfigures(1, 2)
+
+                # Set up axes for original image plot
+                ax = subfigs[0].add_subplot(111)
+                ax.set_xticks([])
+                ax.set_yticks([])
+                ax.set_ylabel(f'Sample {original_index:.2f}')
+
+                ax.imshow(data, cmap=plt.cm.gray, clim=(0, 255))
+
+                # Get axes for the second subfigure, plot the sharpness overlay on these axes
+                ax = subfigs[1].add_subplot(111)
+
+                display_wavelet_decomposition_overlay(output_list[i*step], ax, blur_indicator=False,
+                                                      image_identifier = f'Sample {original_index:.2f}',
+                                                      title = f'Level {decomposition_level[level_index]} Sharpness')
+
+            plt.show()
 
 
+# Set visual output to display data as described above (3 highest, 1 least nonzero, 3 zero sharpness)
 print('#### TESTING CLOUD DATA ####\n\n')
-test_cloud_data()
+start_time = time.perf_counter()
+test_cloud_data(visual_output=False)
+end_time   = time.perf_counter()
+
+print(f'\n\nCLOUD DATA TESTING COMPLETED IN {end_time-start_time:.4f} SECONDS')
 
 print('\n\n#### TESTING SYNTHETIC DATA ####\n\n')
-test_sinusoidal_data()
+start_time = time.perf_counter()
+test_sinusoidal_data(visual_output=False)
+end_time   = time.perf_counter()
+
+print(f'\n\nSYNTHETIC DATA TESTING COMPLETED IN {end_time-start_time:.4f} SECONDS')
 
 
 

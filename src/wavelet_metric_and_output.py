@@ -288,7 +288,8 @@ def wavelet_sharpness(data, level=3, threshold=35):
 # NOTE: Threshold should match what the threshold was for wavelet_sharpness.
 # The image_identifier will be set as the y-axis label, and the title will be set as the figure
 # title.
-def display_wavelet_decomposition_overlay(storage_dictionary, figure_axes, threshold = 35, image_identifier = 'DEFAULT', title = 'DEFAULT TITLE'):
+# Note also that the yellow border on blurred edges can be toggled with the blur_indicator boolean
+def display_wavelet_decomposition_overlay(storage_dictionary, figure_axes, blur_indicator=True, threshold = 35, image_identifier = 'DEFAULT', title = 'DEFAULT TITLE'):
     # Retrive the decomposition level from the dictionary
     level = storage_dictionary['decomposition_level']
 
@@ -298,14 +299,13 @@ def display_wavelet_decomposition_overlay(storage_dictionary, figure_axes, thres
 
     # Display the sharpness and blur_extent statistics on the x-axis
     figure_axes.set_xlabel('Sharpness: {sharpness:.3f}  Blur Extent: {blur_extent:.3f}'
-                                          .format(**storage_dictionary),
-                                          fontsize=6)
+                                          .format(**storage_dictionary),)
 
     # Set the y-axis label to the image identifier
-    figure_axes.set_ylabel(f'Image {image_identifier}', fontsize=6)
+    figure_axes.set_ylabel(f'Image {image_identifier}')
 
     # Set the figure title
-    figure_axes.set_title(title, fontsize=10)
+    figure_axes.set_title(title)
 
     # Plot the underlying image
     figure_axes.imshow(storage_dictionary['data'],
@@ -408,12 +408,13 @@ def display_wavelet_decomposition_overlay(storage_dictionary, figure_axes, thres
             # yellow if the edge is potentially blurred. Note that we cannot pinpoint
             # specific edges within the large patch that might be blurred, only that
             # the large patch potentially contains a blurred edge.
-            if(storage_dictionary['blurred_edges'][i][j] > 0.5):
-                indicator_patch = patches.Rectangle((col_lo_index-.5, row_lo_index-.5),
-                                                    2**(level+1), 2**(level+1),
-                                                    linewidth=2, edgecolor='yellow',
-                                                    facecolor=None, alpha=.1)
-                figure_axes.add_patch(indicator_patch)
+            if(blur_indicator):
+                if(storage_dictionary['blurred_edges'][i][j] > 0.5):
+                    indicator_patch = patches.Rectangle((col_lo_index-.5, row_lo_index-.5),
+                                                        2**(level+1), 2**(level+1),
+                                                        linewidth=2, edgecolor='yellow',
+                                                        facecolor=None, alpha=.1)
+                    figure_axes.add_patch(indicator_patch)
        
 
     
