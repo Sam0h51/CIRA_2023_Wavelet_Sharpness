@@ -12,6 +12,7 @@ from metrics import compute_metric, compute_all_metrics, metric_f
 from scipy.ndimage import gaussian_filter
 from wavelet_metric_and_output import wavelet_sharpness, display_wavelet_decomposition_overlay
 from statistics import mode
+from wavelet_visualization_tools import *
 
 def test_sinusoidal_data():
     # Create a list of angles for the sinusoidal grating. These are chosen to scan through a full rotation (since the

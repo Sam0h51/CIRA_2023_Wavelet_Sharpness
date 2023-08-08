@@ -271,7 +271,7 @@ def wavelet_sharpness(data, level=3, threshold=35):
     # We store the outputs in a dictionary to make the code more readable
     # when each quantity is accessed.
     storage_dictionary = {'sharpness':image_sharpness, 'blur_extent':blur_extent,
-                          'data':data, 'edge_maps':edge_maps,
+                          'data':data, 'edge_maps':edge_maps, 'edge_max':edge_max,
                           'low_grad_edges':low_grad_edge_indicator,
                           'mid_grad_edges':mid_grad_edge_indicator,
                           'sharp_edges':sharp_edge_indicator,
