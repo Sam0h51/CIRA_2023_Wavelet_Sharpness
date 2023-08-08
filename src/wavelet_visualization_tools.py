@@ -14,7 +14,7 @@ from scipy.ndimage import gaussian_filter
 from wavelet_metric_and_output import wavelet_sharpness, display_wavelet_decomposition_overlay
 from statistics import mode
 
-def display_wavelet_decomposition(fig, output_list, same_clim=False, ):
+def display_wavelet_decomposition(fig, output_list, same_clim=False):
     fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
 
     subfigs = fig.subfigures(2, 2)

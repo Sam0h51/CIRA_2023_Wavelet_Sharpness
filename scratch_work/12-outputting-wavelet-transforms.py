@@ -17,6 +17,12 @@ from statistics import mode
 data = load_data('../data/kh_ABI_C13.nc', sample=16)
 data = np.reshape(data, (data.shape[0], data.shape[1]))
 
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.imshow(data, cmap=plt.cm.gray, clim=(0, 255))
+ax.set_xticks([])
+ax.set_yticks([])
+
 coefficient_labels = ['HL', 'LH', 'HH']
 
 fig = plt.figure(figsize=(10, 10))
@@ -27,7 +33,7 @@ subfigs = np.ravel(subfigs)
 
 level = 3
 
-same_clim = False
+same_clim = True
 
 output_list = pywt.wavedec2(data, wavelet='haar', level = level)
 
@@ -116,7 +122,7 @@ for i in range(length):
 
 plt.show()
 
-output_dictionary = wavelet_sharpness(data, level=level)
+output_dictionary = wavelet_sharpness(data, level=max(level, 3))
 edge_max = output_dictionary['edge_max']
 
 length = len(edge_max)
